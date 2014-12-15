@@ -1,0 +1,124 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+## Loading and preprocessing the data
+- Load data into dataframe "activityData" using `read.csv()` 
+- Remove `NA`
+- Convert dates
+
+```{r}
+input<-read.csv("activity.csv")
+activityData<-input[complete.cases(input),]
+head(activityData)
+```
+
+
+Aggregate data into daily steps
+```{r}
+activityDays<-aggregate(activityData[, 1], list(activityData$date), sum)
+names(activityDays)<-c("Date","Steps")
+```
+
+## What is mean total number of steps taken per day?
+Create histogram
+```{r, fig.height=4}
+hist(activityDays$Steps, col = "red",xlab="Steps daily",main="",breaks=15)
+```
+
+
+Calculate simple statistics:
+```{r}
+mean(activityDays$Steps)
+median(activityDays$Steps)
+```
+
+So, the mean total number of steps is very close to median and equal 10766.
+
+## What is the average daily activity pattern?
+Again convert data:
+```{r}
+activityIntervals<-aggregate(activityData[, 1], list(activityData$interval), mean)
+plot(activityIntervals$x,type="l",xlab="5-min intervals",ylab="average steps per interval")
+```
+
+Maximum steps in this 5-minute interval:
+```{r}
+activityIntervals[activityIntervals$x==max(activityIntervals$x),]$Group.1
+```
+8:35 could means morning exercises of walk to office by foot.
+
+## Imputing missing values
+Calculate number of NA:
+```{r}
+sum(is.na(input$steps))
+```
+It's about
+```{r}
+round(sum(is.na(input$steps))/nrow(input),2)
+
+```
+ of data.
+ 
+ Function that enriches data with average daily steps for current interval:
+```{r}
+newData<-input
+fg<-function(){
+  for (i in 1:nrow(newData)){
+    if(is.na(newData$steps[i])==TRUE){
+      newData$steps[i]<-activityIntervals[activityIntervals$Group.1==newData$interval[i],2]
+    } 
+  }
+  newData
+}
+newData<-fg()
+
+```
+ Let's check on `NA` again:
+```{r}
+ sum(is.na(newData$steps))
+```
+
+```{r}
+activityDays2<-aggregate(newData[, 1], list(newData$date), sum)
+```
+
+Create histogram:
+```{r, fig.height=4}
+hist(activityDays2$x, col = "blue",xlab="Steps daily",main="Without NA",breaks=15)
+```
+
+Calculate simple statistics:
+```{r}
+mean(activityDays2$x)
+median(activityDays2$x)
+```
+When we add some non-zero values into data we increase median.
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+I didn't complete this part, because a met an error in script below and I had not enough time to solve it.
+
+Create factors
+newData$date=as.Date(newData$date,"%y-%m-%d")
+newData$WD <- ifelse(c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")[as.POSIXlt(newData$date)$wday + 1]=="Saturday"|c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday","Friday", "Saturday")[as.POSIXlt(newData$date)$wday + 1]=="Sunday", "weekend", "weekday")
+
+Subset data into two factors
+newData1<-subset(newData,newData$WD=="weekday")
+activityIntervals1<-aggregate(newData1[, 1], list(newData1$interval), mean)
+newData2<-subset(newData,newData$WD=="weekend")
+activityIntervals2<-aggregate(newData2[, 1], list(newData2$interval), mean)
+
+Plot results
+plot(activityIntervals1$x, type="n",xlab="",main="",
+     ylab="average steps per interval" ,xaxt='n')
+plot(activityIntervals1$x,type="l",col="red")
+plot(activityIntervals2$x,type="l",col="blue")
+legend("topright",legend=c("Weekdays","Weekends"),
+       lty=1,col=c("red","blue"),y.intersp=0.3,bty="n")
+
